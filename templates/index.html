@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electrician Booking Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 12px;
+            height: 12px;
+            background: #2ecc71;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e1e8ed;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin: 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            order: 2;
+        }
+
+        .message.assistant .message-avatar {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e1e8ed;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 18px;
+            border: 1px solid #e1e8ed;
+            margin-bottom: 15px;
+            max-width: 70%;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .quick-action {
+            background: #f8f9fa;
+            border: 1px solid #e1e8ed;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .quick-action:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .emergency-btn {
+            background: #dc3545 !important;
+            color: white !important;
+            border-color: #dc3545 !important;
+            animation: pulse-emergency 2s infinite;
+        }
+
+        .emergency-btn:hover {
+            background: #c82333 !important;
+            border-color: #c82333 !important;
+            transform: scale(1.05);
+        }
+
+        @keyframes pulse-emergency {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
+
+        .emergency-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+
+        .emergency-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .emergency-title {
+            color: #dc3545;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .emergency-phone {
+            background: #dc3545;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 20px;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+            margin: 20px 0;
+            transition: all 0.3s;
+        }
+
+        .emergency-phone:hover {
+            background: #c82333;
+            transform: scale(1.05);
+            color: white;
+            text-decoration: none;
+        }
+
+        .emergency-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .booking-confirmation {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                width: 95%;
+                height: 90vh;
+                border-radius: 10px;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+            
+            .quick-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="status-indicator"></div>
+            <h1>⚡ PowerPro Electrical</h1>
+            <p>Hi! I'm Sarah, your friendly electrical assistant. How can I help you today?</p>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message assistant">
+                <div class="message-avatar">S</div>
+                <div class="message-content">
+                    Hi there! Thanks for reaching out to PowerPro Electrical! I'm Sarah, and I'm genuinely excited to help you with all your electrical needs today. 
+                    <br><br>
+                    Whether you're dealing with:
+                    • Electrical repairs that are driving you crazy
+                    • New installations you're excited about
+                    • Emergency situations that need immediate attention
+                    • Safety inspections for peace of mind
+                    • Outlet and switch installations
+                    • Lighting that needs upgrading
+                    <br><br>
+                    I'm here to make sure you get the help you need! What's going on with your electrical system today?
+                </div>
+            </div>
+            
+            <div class="quick-actions">
+                <div class="quick-action" onclick="sendQuickMessage('I need an electrical repair')">🔧 Repair</div>
+                <div class="quick-action" onclick="sendQuickMessage('I need a new installation')">⚡ Installation</div>
+                <div class="quick-action emergency-btn" onclick="handleEmergency()">🚨 Emergency</div>
+                <div class="quick-action" onclick="sendQuickMessage('I need an inspection')">🔍 Inspection</div>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+        
+        <div class="booking-confirmation" id="bookingConfirmation">
+            ✅ Booking details captured! I'll confirm your appointment shortly.
+        </div>
+
+        <!-- Emergency Modal -->
+        <div id="emergencyModal" class="emergency-modal">
+            <div class="emergency-content">
+                <div class="emergency-title">🚨 ELECTRICAL EMERGENCY</div>
+                <p>For immediate electrical emergencies, call our 24/7 emergency line:</p>
+                <a href="tel:555911ELECTRIC" class="emergency-phone">📞 (555) 911-ELECTRIC</a>
+                <div class="emergency-warning">
+                    ⚠️ Do NOT attempt to fix electrical emergencies yourself!<br>
+                    This could be very dangerous. Call our certified electricians immediately.
+                </div>
+                <p>Our emergency electricians are available 24/7 for:</p>
+                <ul style="text-align: left; margin: 20px 0;">
+                    <li>Electrical fires or burning smells</li>
+                    <li>Exposed or damaged wires</li>
+                    <li>Power outages affecting safety</li>
+                    <li>Electrical shocks or electrocution</li>
+                    <li>Sparkling or arcing electrical equipment</li>
+                </ul>
+                <button onclick="closeEmergencyModal()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close</button>
+            </div>
+        </div>
+        
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Type your message here..." autocomplete="off">
+                <button id="sendButton" class="send-button" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let conversationHistory = [];
+        
+        // Initialize chat
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatInput = document.getElementById('chatInput');
+            const sendButton = document.getElementById('sendButton');
+            
+            // Focus on input
+            chatInput.focus();
+            
+            // Send message on Enter key
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Auto-resize input
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = this.scrollHeight + 'px';
+            });
+        });
+        
+        function sendQuickMessage(message) {
+            document.getElementById('chatInput').value = message;
+            sendMessage();
+        }
+        
+        function sendMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const message = chatInput.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessageToChat('user', message);
+            
+            // Clear input
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            // Disable send button
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            sendButton.textContent = 'Sending...';
+            
+            // Send to backend
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    history: conversationHistory
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide typing indicator
+                hideTypingIndicator();
+                
+                // Add AI response to chat
+                addMessageToChat('assistant', data.response);
+                
+                // Update conversation history
+                conversationHistory = data.history;
+                
+                // Show booking confirmation if booking info was captured
+                if (data.booking_info && Object.keys(data.booking_info).length > 0) {
+                    showBookingConfirmation();
+                }
+                
+                // Re-enable send button
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send';
+                
+                // Scroll to bottom
+                scrollToBottom();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideTypingIndicator();
+                addMessageToChat('assistant', 'I apologize, but I\'m having trouble connecting right now. Please try again or call us directly at (555) 123-4567.');
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send';
+            });
+        }
+        
+        function addMessageToChat(role, content) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = role === 'user' ? 'U' : 'S';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.textContent = content;
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(messageContent);
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        function showTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'block';
+            scrollToBottom();
+        }
+        
+        function hideTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+        
+        function showBookingConfirmation() {
+            const confirmation = document.getElementById('bookingConfirmation');
+            confirmation.style.display = 'block';
+            setTimeout(() => {
+                confirmation.style.display = 'none';
+            }, 5000);
+        }
+        
+        function scrollToBottom() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function handleEmergency() {
+            // Show emergency modal
+            document.getElementById('emergencyModal').style.display = 'block';
+            
+            // Also send emergency message to chat
+            sendQuickMessage('I have an electrical emergency');
+        }
+
+        function closeEmergencyModal() {
+            document.getElementById('emergencyModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('emergencyModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

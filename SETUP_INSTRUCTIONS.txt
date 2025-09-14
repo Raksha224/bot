@@ -1,0 +1,180 @@
+ELECTRICIAN CHATBOT - SETUP INSTRUCTIONS
+==========================================
+
+QUICK START (5 MINUTES)
+=======================
+
+1. INSTALL SOFTWARE
+   - Python: https://python.org/downloads (check "Add to PATH")
+   - Ollama: https://ollama.com/download
+
+2. DOWNLOAD FILES
+   - Download all files to a folder
+   - Open Command Prompt in that folder
+
+3. INSTALL DEPENDENCIES
+   pip install -r requirements.txt
+
+4. DOWNLOAD AI MODEL
+   ollama pull mistral
+
+5. START CHATBOT
+   Windows: Double-click setup.bat
+   Mac/Linux: Run ./setup.sh
+
+6. OPEN IN BROWSER
+   Go to: http://localhost:5000
+
+DETAILED STEPS
+==============
+
+STEP 1: INSTALL PYTHON
+----------------------
+Windows:
+1. Go to https://python.org/downloads
+2. Download Python 3.8 or newer
+3. Run installer
+4. IMPORTANT: Check "Add Python to PATH"
+5. Click "Install Now"
+
+Verify: Open Command Prompt, type "python --version"
+
+Mac:
+- brew install python
+- Or download from python.org
+
+Linux:
+- sudo apt install python3 python3-pip (Ubuntu/Debian)
+- sudo yum install python3 python3-pip (CentOS/RHEL)
+
+STEP 2: INSTALL OLLAMA
+----------------------
+Windows:
+1. Go to https://ollama.com/download
+2. Download Windows installer
+3. Run installer
+4. Restart Command Prompt
+
+Mac/Linux:
+curl -fsSL https://ollama.com/install.sh | sh
+
+Verify: Open Command Prompt, type "ollama --version"
+
+STEP 3: DOWNLOAD CHATBOT FILES
+------------------------------
+Create folder "electrician-chatbot" and download:
+- app.py
+- requirements.txt
+- templates/index.html
+- templates/bookings.html
+- setup.bat (Windows)
+- setup.sh (Mac/Linux)
+
+STEP 4: INSTALL PYTHON DEPENDENCIES
+-----------------------------------
+Open Command Prompt in chatbot folder:
+pip install -r requirements.txt
+
+If permission error:
+pip install --user -r requirements.txt
+
+STEP 5: DOWNLOAD AI MODEL
+-------------------------
+ollama pull mistral
+
+Alternative models:
+ollama pull llama3    # Alternative
+ollama pull phi3      # Smaller, faster
+
+STEP 6: START THE SYSTEM
+------------------------
+Method 1 (Automatic):
+- Windows: Double-click setup.bat
+- Mac/Linux: Run ./setup.sh
+
+Method 2 (Manual):
+Terminal 1: ollama serve
+Terminal 2: python app.py
+
+STEP 7: ACCESS CHATBOT
+----------------------
+Open web browser:
+- Customer Interface: http://localhost:5000
+- Admin Dashboard: http://localhost:5000/bookings
+
+TROUBLESHOOTING
+===============
+
+"Python not found"
+- Reinstall Python with "Add to PATH" checked
+- Or add Python to PATH manually
+
+"Ollama not found"
+- Reinstall Ollama
+- Restart Command Prompt
+
+"Module not found"
+- pip install flask requests
+
+"Port 5000 already in use"
+- Close other applications
+- Or change port in app.py
+
+"Ollama connection failed"
+- Make sure Ollama is running: ollama serve
+- Wait 30 seconds after starting
+- Check model: ollama list
+
+Chatbot shows errors
+- Make sure Ollama is running
+- Make sure Mistral model is downloaded
+- Restart both Ollama and chatbot
+
+SHARING WITH OTHERS
+===================
+
+For Team Members:
+1. Share this file and all chatbot files
+2. Provide admin dashboard URL
+3. Update emergency phone numbers
+
+For Customers:
+1. Share customer interface URL
+2. For remote access, use your IP address
+3. Find IP: ipconfig (Windows) or ifconfig (Mac/Linux)
+4. Use: http://YOUR_IP:5000
+
+CUSTOMIZATION
+=============
+
+Change Company Name:
+Edit templates/index.html:
+<h1>⚡ Your Company Name</h1>
+
+Update Emergency Phone:
+Edit app.py:
+"Please call our emergency line immediately at (555) 911-ELECTRIC"
+
+Add New Services:
+Edit service keywords in app.py
+
+COMMON COMMANDS
+===============
+
+Check Python: python --version
+Check Ollama: ollama --version
+List models: ollama list
+Start Ollama: ollama serve
+Start chatbot: python app.py
+
+SUCCESS!
+========
+
+Once running, you'll have:
+- Intelligent AI chatbot
+- Emergency call system
+- Admin dashboard
+- Mobile-friendly interface
+- 100% free to run
+
+Your electrician business now has a professional AI assistant!

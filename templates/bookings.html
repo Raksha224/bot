@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electrician Bookings Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .bookings-section {
+            padding: 30px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .bookings-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .bookings-table th {
+            background: #f8f9fa;
+            color: #333;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .bookings-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e1e8ed;
+            vertical-align: top;
+        }
+
+        .bookings-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-completed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .job-type {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: capitalize;
+        }
+
+        .contact-info {
+            font-size: 14px;
+        }
+
+        .contact-info strong {
+            color: #333;
+        }
+
+        .description {
+            max-width: 300px;
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-confirm {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-complete {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #dc3545;
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .no-bookings {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .no-bookings h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .back-to-chat {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+
+        .back-to-chat:hover {
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .bookings-table {
+                font-size: 14px;
+            }
+            
+            .bookings-table th,
+            .bookings-table td {
+                padding: 10px 8px;
+            }
+            
+            .description {
+                max-width: 200px;
+            }
+            
+            .actions {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Electrician Bookings Dashboard</h1>
+            <p>Manage your electrical service appointments</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalBookings">-</div>
+                <div class="stat-label">Total Bookings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="pendingBookings">-</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="confirmedBookings">-</div>
+                <div class="stat-label">Confirmed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completedBookings">-</div>
+                <div class="stat-label">Completed</div>
+            </div>
+        </div>
+
+        <div class="bookings-section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Bookings</h2>
+                <button class="refresh-btn" onclick="loadBookings()">🔄 Refresh</button>
+            </div>
+
+            <div id="bookingsTable">
+                <div class="no-bookings">
+                    <h3>Loading bookings...</h3>
+                    <p>Please wait while we fetch your appointments.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="back-to-chat" onclick="window.location.href='/'">
+        💬 Back to Chat
+    </button>
+
+    <script>
+        function loadBookings() {
+            fetch('/api/bookings')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('bookingsTable').innerHTML = 
+                            '<div class="no-bookings"><h3>Error</h3><p>' + data.error + '</p></div>';
+                        return;
+                    }
+                    
+                    displayBookings(data);
+                    updateStats(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('bookingsTable').innerHTML = 
+                        '<div class="no-bookings"><h3>Error</h3><p>Failed to load bookings. Please try again.</p></div>';
+                });
+        }
+
+        function displayBookings(bookings) {
+            if (bookings.length === 0) {
+                document.getElementById('bookingsTable').innerHTML = 
+                    '<div class="no-bookings"><h3>No Bookings Yet</h3><p>Your appointments will appear here once customers start booking through the chat.</p></div>';
+                return;
+            }
+
+            let tableHTML = `
+                <table class="bookings-table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th>Job Type</th>
+                            <th>Date & Time</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            bookings.forEach(booking => {
+                const createdDate = new Date(booking.created_at).toLocaleDateString();
+                const statusClass = `status-${booking.status}`;
+                
+                tableHTML += `
+                    <tr>
+                        <td>
+                            <div class="contact-info">
+                                <strong>${booking.customer_name}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="contact-info">
+                                📞 ${booking.phone_number}
+                                ${booking.address ? `<br>📍 ${booking.address}` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="job-type">${booking.job_type}</span>
+                        </td>
+                        <td>
+                            <div class="contact-info">
+                                📅 ${booking.preferred_date || 'Not specified'}<br>
+                                🕐 ${booking.preferred_time || 'Not specified'}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="description">${booking.description || 'No description provided'}</div>
+                        </td>
+                        <td>
+                            <span class="status-badge ${statusClass}">${booking.status}</span>
+                        </td>
+                        <td>
+                            <div class="actions">
+                                ${booking.status === 'pending' ? 
+                                    '<button class="action-btn btn-confirm" onclick="updateStatus(' + booking.id + ', \'confirmed\')">Confirm</button>' : 
+                                    ''
+                                }
+                                ${booking.status === 'confirmed' ? 
+                                    '<button class="action-btn btn-complete" onclick="updateStatus(' + booking.id + ', \'completed\')">Complete</button>' : 
+                                    ''
+                                }
+                                ${booking.status !== 'completed' ? 
+                                    '<button class="action-btn btn-cancel" onclick="updateStatus(' + booking.id + ', \'cancelled\')">Cancel</button>' : 
+                                    ''
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('bookingsTable').innerHTML = tableHTML;
+        }
+
+        function updateStats(bookings) {
+            const total = bookings.length;
+            const pending = bookings.filter(b => b.status === 'pending').length;
+            const confirmed = bookings.filter(b => b.status === 'confirmed').length;
+            const completed = bookings.filter(b => b.status === 'completed').length;
+
+            document.getElementById('totalBookings').textContent = total;
+            document.getElementById('pendingBookings').textContent = pending;
+            document.getElementById('confirmedBookings').textContent = confirmed;
+            document.getElementById('completedBookings').textContent = completed;
+        }
+
+        function updateStatus(bookingId, newStatus) {
+            // This would typically make an API call to update the status
+            // For now, we'll just reload the bookings
+            alert(`Booking ${bookingId} status updated to ${newStatus}`);
+            loadBookings();
+        }
+
+        // Load bookings when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadBookings();
+        });
+    </script>
+</body>
+</html>

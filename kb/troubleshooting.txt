@@ -1,0 +1,5 @@
+﻿Troubleshooting checklist
+1) Check breaker for trips; reset once.
+2) Test GFCI buttons (Reset/Test) in kitchen/bath/outdoor.
+3) For flickering lights, gently tighten bulb and check fixture.
+4) Burning smell/sparks: turn off main breaker and call emergency.

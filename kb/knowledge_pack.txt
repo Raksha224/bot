@@ -1,0 +1,36 @@
+PowerPro Electrical - Knowledge Pack
+Updated: 2025-09-27 16:12
+
+Company Basics
+- Phone: (555) 123-4567
+- Hours: Mon–Sat 8:00–18:00, Emergency 24/7
+- Service Area: Downtown, Northside, Eastview
+- Licenses & Insurance: Up-to-date; permits handled for panel work
+
+Services
+- Repairs: outlets, switches, lighting, breakers, diagnostics
+- Installations: lighting, outlets/switches, smart switches, dedicated circuits
+- Panel Work: upgrades 100A→200A, breaker replacement
+- Safety: GFCI/AFCI install, inspections, code corrections
+- Emergency: 24/7 electrical only (not HVAC/plumbing)
+
+FAQs
+- Do you install GFCI? Yes — kitchen, bath, outdoor; typical 45–90 min.
+- Do you upgrade panels? Yes — permits included; typical 1 day.
+- Do you serve my area? Downtown, Northside, Eastview; emergency 60–90 min.
+
+Troubleshooting & Safety
+1) Check breaker for trips and reset once.
+2) Test GFCI Reset/Test in kitchen/bath/outdoor.
+3) Flicker: tighten bulb, check fixture.
+4) Burning smell/sparks: turn off main breaker; call emergency line.
+
+Booking Script
+- Name, phone, address
+- Issue or installation details
+- Preferred date/time; access notes
+- Confirm and set expectations (on-site estimate, no hidden fees)
+
+Policies
+- Cancellation: free ≥24h; late cancellation fee may apply
+- Payment: card/cash; invoice on completion; permit fees disclosed

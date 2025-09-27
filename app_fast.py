@@ -2,7 +2,7 @@
 Fast, optimized version of the Electrician Chatbot with export features.
 This version prioritizes speed while maintaining clean architecture principles.
 """
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -17,6 +17,7 @@ import requests
 from datetime import datetime, timedelta
 import os
 import csv
+import random
 import io
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -25,12 +26,17 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet
 import threading
 from functools import lru_cache
-from typing import List
+from typing import List, Tuple, Optional
 
 load_dotenv()
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": os.environ.get("CORS_ORIGINS", "*")}})
-limiter = Limiter(get_remote_address, app=app, default_limits=[os.environ.get("RATE_LIMIT", "60 per minute")])
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    storage_uri=os.environ.get("RATE_LIMIT_STORAGE", "memory://"),
+    default_limits=[os.environ.get("RATE_LIMIT", "60 per minute")]
+)
 
 # Structured rotating file logs (production-friendly)
 logs_dir = os.path.join(os.getcwd(), 'logs')
@@ -126,10 +132,10 @@ def _load_kb_snippets() -> List[str]:
             if name.lower().endswith('.txt'):
                 with open(path, 'r', encoding='utf-8', errors='ignore') as f:
                     snippets.append(f.read()[:4000])
-            elif name.lower().endswith('.csv'):
-                # Read header + first 3 rows only for speed
+            elif name.lower().endswith('.csv') and name.lower() != 'faq.csv':
+                # Read small head only for speed
                 with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                    head = ''.join([next(f, '') for _ in range(4)])
+                    head = ''.join([next(f, '') for _ in range(6)])
                     snippets.append(head)
             elif name.lower().endswith('.pdf'):
                 # Avoid heavy parsing; use filename as tag
@@ -139,6 +145,42 @@ def _load_kb_snippets() -> List[str]:
     return snippets
 
 KB_SNIPPETS = _load_kb_snippets()
+
+# Load FAQ pairs for precise instant answers
+def _load_faq() -> List[Tuple[str, str]]:
+    faq_path = os.path.join(KB_DIR, 'faq.csv')
+    items: List[Tuple[str, str]] = []
+    if os.path.exists(faq_path):
+        try:
+            import csv
+            with open(faq_path, 'r', encoding='utf-8', errors='ignore') as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                for row in reader:
+                    if len(row) >= 2:
+                        items.append((row[0].strip(), row[1].strip()))
+        except Exception as e:
+            app.logger.warning(f"FAQ load warning: {e}")
+    return items
+
+FAQ_QA: List[Tuple[str, str]] = _load_faq()
+
+def _simple_similarity(a: str, b: str) -> float:
+    aset = set(a.lower().split())
+    bset = set(b.lower().split())
+    if not aset or not bset:
+        return 0.0
+    inter = len(aset & bset)
+    union = len(aset | bset)
+    return inter / union
+
+def answer_from_faq(message: str) -> str | None:
+    best = (0.0, None)
+    for q, a in FAQ_QA:
+        s = _simple_similarity(message, q)
+        if s > best[0]:
+            best = (s, a)
+    return best[1] if best[0] >= 0.35 else None
 
 # Fast AI response system
 def _services_overview() -> str:
@@ -187,6 +229,16 @@ def get_fast_ai_response(message, conversation_history):
         )
 
     # 2) FAST INTENT TEMPLATES (concise and precise)
+    # FAQ shortcut (exact business answers)
+    faq_ans = answer_from_faq(message)
+    if faq_ans:
+        # add a small conversational follow-up to avoid feeling repetitive
+        tails = [
+            " Would you like to schedule a visit?",
+            " Do you want me to book a slot for you?",
+            " I can arrange an electrician—what day works for you?"
+        ]
+        return faq_ans + random.choice(tails)
     if any(word in message_lower for word in ['hello', 'hi', 'hey', 'good morning', 'good afternoon']):
         return get_cached_response("greeting")
 
@@ -199,17 +251,21 @@ def get_fast_ai_response(message, conversation_history):
 
     # Repair intent (electrical only)
     if any(word in message_lower for word in ['broken', 'not working', 'fix', 'repair', 'outlet', 'switch', 'short', 'sparking', 'tripping', 'breaker']):
-        return (
-            "We can help with electrical repairs like outlets, switches, lights, and breakers. "
-            + _precise_repair_followups()
-        )
+        variants = [
+            "I can help with that repair—outlets, switches, lights, or breakers. ",
+            "No problem—our electricians handle outlet/switch/light/breaker issues every day. ",
+            "We’ll get that sorted. We fix outlets, switches, lighting and breakers. "
+        ]
+        return random.choice(variants) + _precise_repair_followups()
 
     # Installation intent
     if any(word in message_lower for word in ['install', 'new', 'add', 'put in', 'wiring', 'replace fixture', 'ceiling fan (electric wiring)']):
-        return (
-            "We install and upgrade lighting, outlets/switches, dedicated circuits, and smart switches. "
-            "What are you looking to install and where?"
-        )
+        variants = [
+            "We install lighting, outlets/switches, dedicated circuits and smart switches. ",
+            "Installations are our thing—lighting upgrades, smart switches, new outlets. ",
+            "Happy to install—lighting, outlets, smart devices, new circuits. "
+        ]
+        return random.choice(variants) + "What are you looking to install and where?"
 
     if any(word in message_lower for word in ['price', 'cost', 'how much', 'estimate', 'quote']):
         return (
@@ -220,11 +276,23 @@ def get_fast_ai_response(message, conversation_history):
     if any(word in message_lower for word in ['thank', 'thanks', 'appreciate']):
         return get_cached_response("thanks")
 
-    # 3) Fall back to local model (fast) else general cached
+    # 3) Fall back to local model (fast) else a conversational default
     try:
         return get_ollama_response_fast(message, conversation_history)
     except:
-        return "Happy to help. Could you describe the electrical issue or installation you need?"
+        openers = [
+            "Happy to help—",
+            "Got it—",
+            "Sure—",
+            "Thanks for reaching out—"
+        ]
+        prompts = [
+            "could you describe the electrical issue or installation you need?",
+            "what room and devices are affected?",
+            "do you notice any tripping breakers, smells, or sparks?",
+            "when would you like us to come by?"
+        ]
+        return random.choice(openers) + random.choice(prompts)
 
 def get_ollama_response_fast(message, conversation_history):
     """Fast Ollama response with timeout"""
@@ -297,11 +365,57 @@ RESPOND AS SARAH:"""
         print(f"Ollama error: {e}")
         return get_cached_response("general")
 
+def stream_ollama_tokens(message, conversation_history):
+    """Yield tokens from Ollama when streaming is enabled; fallback to full text chunks."""
+    try:
+        base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+        model_name = os.getenv('OLLAMA_MODEL', 'mistral')
+        use_ollama = os.getenv('USE_OLLAMA', 'true').lower() == 'true'
+        if not use_ollama:
+            raise Exception('Ollama disabled via USE_OLLAMA=false')
+
+        history_text = ""
+        for msg in conversation_history[-6:]:
+            role = "Customer" if msg['role'] == 'user' else "Sarah"
+            history_text += f"{role}: {msg['content']}\n"
+
+        system_prompt = "You are Sarah, an expert electrical service receptionist. ONLY discuss electrical work. Be concise, warm, and never repeat the user's question."
+        kb_text = '\n'.join(KB_SNIPPETS[:5])
+        full_prompt = f"{system_prompt}\n\nCONVERSATION HISTORY:\n{history_text}\n\nCURRENT MESSAGE: {message}\n\nKNOWLEDGE HINTS:\n{kb_text}\n\nRESPOND AS SARAH:"
+
+        with requests.post(
+            f"{base_url}/api/generate",
+            json={
+                'model': model_name,
+                'prompt': full_prompt,
+                'stream': True,
+                'options': {'temperature': 0.7, 'max_tokens': 300}
+            },
+            stream=True,
+            timeout=15
+        ) as r:
+            r.raise_for_status()
+            buffer = ''
+            for line in r.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    token = obj.get('response', '')
+                    if token:
+                        yield token
+                        buffer += token
+                except Exception:
+                    continue
+    except Exception as e:
+        yield ""
+
 # Fast information extraction
 def extract_booking_info_fast(message, conversation_history):
-    """Fast booking information extraction"""
+    """Fast booking information extraction that also looks back in history.
+    This prevents asking again for details already given earlier."""
     booking_info = {}
-    
+
     # Extract name
     name_patterns = [
         r"my name is (\w+)",
@@ -310,19 +424,57 @@ def extract_booking_info_fast(message, conversation_history):
         r"this is (\w+)",
         r"call me (\w+)"
     ]
-    
-    for pattern in name_patterns:
-        match = re.search(pattern, message.lower())
-        if match:
-            booking_info['name'] = match.group(1).title()
-            break
-    
+
+    def find_name(text: str):
+        for pattern in name_patterns:
+            match = re.search(pattern, text.lower())
+            if match:
+                return match.group(1).title()
+        return None
+
+    # Heuristic: bare name like "raksha singh" without prefix
+    def is_name_like(text: str) -> str | None:
+        t = text.strip()
+        if any(ch.isdigit() for ch in t):
+            return None
+        # allow 1-3 words letters/space/.-'
+        import string
+        allowed = set(string.ascii_letters + " .-'”’“‘")
+        if not all(ch in allowed for ch in t):
+            return None
+        words = [w for w in re.split(r"\s+", t) if w]
+        if 1 <= len(words) <= 3 and 2 <= len(t) <= 40:
+            return t.title()
+        return None
+
+    nm = find_name(message) or is_name_like(message)
+    if nm:
+        booking_info['name'] = nm
+    else:
+        for msg in reversed(conversation_history[-10:]):
+            if msg.get('role') == 'user':
+                nm = find_name(msg.get('content', '')) or is_name_like(msg.get('content', ''))
+                if nm:
+                    booking_info['name'] = nm
+                    break
+
     # Extract phone
     phone_pattern = r'(\d{3}[-.\s]?\d{3}[-.\s]?\d{4})'
-    phone_match = re.search(phone_pattern, message)
-    if phone_match:
-        booking_info['phone'] = phone_match.group(1)
-    
+    def find_phone(text: str):
+        m = re.search(phone_pattern, text)
+        return m.group(1) if m else None
+
+    ph = find_phone(message)
+    if ph:
+        booking_info['phone'] = ph
+    else:
+        for msg in reversed(conversation_history[-10:]):
+            if msg.get('role') == 'user':
+                ph = find_phone(msg.get('content', ''))
+                if ph:
+                    booking_info['phone'] = ph
+                    break
+
     # Extract job type
     job_keywords = {
         'repair': ['repair', 'fix', 'broken', 'not working', 'issue', 'problem'],
@@ -333,49 +485,90 @@ def extract_booking_info_fast(message, conversation_history):
         'lighting': ['light', 'lamp', 'fixture', 'bulb'],
         'panel': ['panel', 'breaker', 'electrical panel']
     }
-    
+
     message_lower = message.lower()
     for job_type, keywords in job_keywords.items():
         if any(keyword in message_lower for keyword in keywords):
             booking_info['job_type'] = job_type
             break
-    
+    if 'job_type' not in booking_info:
+        for msg in reversed(conversation_history[-10:]):
+            if msg.get('role') == 'user':
+                txt = msg.get('content', '').lower()
+                for job_type, keywords in job_keywords.items():
+                    if any(keyword in txt for keyword in keywords):
+                        booking_info['job_type'] = job_type
+                        break
+                if 'job_type' in booking_info:
+                    break
+
     # Extract date/time
     date_patterns = [
         r'(monday|tuesday|wednesday|thursday|friday|saturday|sunday)',
         r'(today|tomorrow)',
         r'(\d{1,2}[/-]\d{1,2}[/-]?\d{0,4})'
     ]
-    
+
     for pattern in date_patterns:
         match = re.search(pattern, message_lower)
         if match:
             booking_info['date'] = match.group(1)
             break
-    
+    if 'date' not in booking_info:
+        for msg in reversed(conversation_history[-10:]):
+            if msg.get('role') == 'user':
+                txt = msg.get('content', '').lower()
+                for pattern in date_patterns:
+                    match = re.search(pattern, txt)
+                    if match:
+                        booking_info['date'] = match.group(1)
+                        break
+                if 'date' in booking_info:
+                    break
+
     time_patterns = [
         r'(\d{1,2}:\d{2}\s*(am|pm)?)',
         r'(\d{1,2}\s*(am|pm))',
         r'(morning|afternoon|evening)'
     ]
-    
+
     for pattern in time_patterns:
         match = re.search(pattern, message_lower)
         if match:
             booking_info['time'] = match.group(1)
             break
-    
-    # Extract address
+    if 'time' not in booking_info:
+        for msg in reversed(conversation_history[-10:]):
+            if msg.get('role') == 'user':
+                txt = msg.get('content', '').lower()
+                for pattern in time_patterns:
+                    match = re.search(pattern, txt)
+                    if match:
+                        booking_info['time'] = match.group(1)
+                        break
+                if 'time' in booking_info:
+                    break
+
+    # Extract address (very simple heuristic)
     address_keywords = ['address', 'location', 'at', 'live', 'located']
     if any(keyword in message_lower for keyword in address_keywords):
         address_match = re.search(r'(\d+\s+[a-zA-Z\s]+(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|way|blvd|boulevard))', message)
         if address_match:
             booking_info['address'] = address_match.group(1)
-    
+    if 'address' not in booking_info:
+        for msg in reversed(conversation_history[-10:]):
+            if msg.get('role') == 'user':
+                txt = msg.get('content', '')
+                if any(k in txt.lower() for k in address_keywords):
+                    m = re.search(r'(\d+\s+[a-zA-Z\s]+(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|way|blvd|boulevard))', txt)
+                    if m:
+                        booking_info['address'] = m.group(1)
+                        break
+
     return booking_info
 
-def save_booking_fast(booking_info, conversation_history):
-    """Fast booking save with connection pooling"""
+def save_booking_fast(booking_info, conversation_history) -> Optional[int]:
+    """Fast booking save with connection pooling. Returns booking id."""
     try:
         conn = db_pool.get_connection()
         cursor = conn.cursor()
@@ -401,14 +594,17 @@ def save_booking_fast(booking_info, conversation_history):
             'pending'
         ))
         
+        booking_id = cursor.lastrowid
         conn.commit()
         db_pool.return_connection(conn)
-        print(f"✅ Booking saved: {booking_info}")
-        
+        print(f"✅ Booking saved: {booking_info} -> id={booking_id}")
+        return booking_id
+
     except Exception as e:
         print(f"❌ Error saving booking: {e}")
         if 'conn' in locals():
             db_pool.return_connection(conn)
+        return None
 
 # Routes
 @app.route('/')
@@ -432,6 +628,7 @@ def chat():
 
         user_message = payload.message.strip()
         conversation_history = payload.history
+        message_lower = user_message.lower()
         
         # Add user message to history
         conversation_history.append({'role': 'user', 'content': user_message})
@@ -445,9 +642,37 @@ def chat():
         # Add AI response to history
         conversation_history.append({'role': 'assistant', 'content': ai_response})
         
-        # Save booking if we have enough info
+        # Save when enough info; otherwise ask for the next missing field
         if booking_info.get('name') and booking_info.get('phone') and booking_info.get('job_type'):
-            save_booking_fast(booking_info, conversation_history)
+            booking_id = save_booking_fast(booking_info, conversation_history)
+            if booking_id:
+                ai_response += f"\n\nI've saved your booking (ID {booking_id}). We'll confirm shortly."
+        else:
+            # Only nudge when the user is trying to book/schedule, not when asking info questions
+            info_question = any(
+                kw in message_lower for kw in [
+                    'what', 'how', 'which', 'do you', 'can you', 'service', 'provide', 'offer', 'price', 'cost', 'list'
+                ]
+            )
+            booking_trigger = any(
+                kw in message_lower for kw in ['book', 'schedule', 'visit', 'come by', 'appointment', 'confirm']
+            ) or bool(booking_info.get('job_type'))
+
+            if booking_trigger and not info_question:
+                missing = []
+                for f in ['name','phone','address','job_type','date','time']:
+                    if not booking_info.get(f):
+                        missing.append(f)
+                if missing:
+                    prompts = {
+                        'name': "What's your full name?",
+                        'phone': "What's the best phone number to reach you?",
+                        'address': "What's the service address?",
+                        'job_type': "What electrical work do you need (repair, installation, panel, lighting, etc.)?",
+                        'date': "What day works for you?",
+                        'time': "Do you prefer morning, afternoon, or an exact time?",
+                    }
+                    ai_response += "\n\n" + prompts.get(missing[0], "Could you share a few more details?")
         
         return jsonify({
             'response': ai_response,
@@ -510,102 +735,46 @@ def api_bookings():
         return jsonify({'error': str(e)})
 
 # Export routes
-@app.route('/export/csv')
-def export_csv():
-    """Export bookings as CSV"""
-    try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM bookings ORDER BY created_at DESC')
-        bookings = cursor.fetchall()
-        db_pool.return_connection(conn)
-        
-        # Create CSV in memory
-        output = io.StringIO()
-        writer = csv.writer(output)
-        
-        # Write header
-        writer.writerow(['ID', 'Customer Name', 'Phone', 'Job Type', 'Date', 'Time', 'Address', 'Description', 'Urgency', 'Status', 'Created At', 'Updated At'])
-        
-        # Write data
-        for booking in bookings:
-            writer.writerow(booking)
-        
-        # Create response
-        output.seek(0)
-        csv_data = output.getvalue()
-        output.close()
-        
-        return send_file(
-            io.BytesIO(csv_data.encode('utf-8')),
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name=f'bookings_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-        )
-        
-    except Exception as e:
-        return jsonify({'error': str(e)})
+## Export endpoints removed per request
 
-@app.route('/export/pdf')
-def export_pdf():
-    """Export bookings as PDF"""
+
+@app.route('/chat_stream', methods=['POST'])
+@limiter.limit(os.environ.get('CHAT_RATE_LIMIT', '20 per minute'))
+def chat_stream():
     try:
-        conn = db_pool.get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM bookings ORDER BY created_at DESC')
-        bookings = cursor.fetchall()
-        db_pool.return_connection(conn)
-        
-        # Create PDF in memory
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
-        styles = getSampleStyleSheet()
-        story = []
-        
-        # Title
-        title = Paragraph("Electrician Bookings Report", styles['Title'])
-        story.append(title)
-        story.append(Spacer(1, 20))
-        
-        # Create table
-        table_data = [['ID', 'Customer', 'Phone', 'Job Type', 'Date', 'Time', 'Status']]
-        
-        for booking in bookings:
-            table_data.append([
-                str(booking[0]),
-                booking[1],
-                booking[2],
-                booking[3],
-                booking[4] or '',
-                booking[5] or '',
-                booking[9]
-            ])
-        
-        table = Table(table_data)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 14),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        
-        story.append(table)
-        doc.build(story)
-        
-        buffer.seek(0)
-        return send_file(
-            buffer,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=f'bookings_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
-        )
-        
-    except Exception as e:
-        return jsonify({'error': str(e)})
+        data = request.get_json() or {}
+        try:
+            payload = ChatPayload(**data)
+        except ValidationError as ve:
+            return jsonify({'error': 'Invalid payload', 'detail': ve.errors()}), 400
+
+        user_message = payload.message.strip()
+        history = payload.history or []
+
+        def generate():
+            # first yield a short opener for responsiveness
+            opener = ""
+            faq_ans = answer_from_faq(user_message)
+            if faq_ans:
+                opener = faq_ans + " "
+                yield opener
+
+            # stream from ollama if enabled, else chunk the fast reply
+            used_any = False
+            for tok in stream_ollama_tokens(user_message, history):
+                if tok:
+                    used_any = True
+                    yield tok
+            if not used_any:
+                # fallback chunking
+                text = get_fast_ai_response(user_message, history)
+                for i in range(0, len(text), 40):
+                    yield text[i:i+40]
+
+        return Response(generate(), mimetype='text/plain')
+    except Exception:
+        app.logger.exception('stream error')
+        return jsonify({'error': 'stream failed'}), 500
 
 
 # Basic health and readiness endpoints
@@ -625,11 +794,12 @@ def ready():
         return jsonify({'status': 'degraded'}), 503
 
 if __name__ == '__main__':
-    print("🚀 Starting Fast Electrician Chatbot...")
-    print("⚡ Optimized for speed with caching and connection pooling")
-    print("📊 Export features: CSV and PDF")
     host = os.getenv('HOST', '0.0.0.0')
     port = int(os.getenv('PORT', '5000'))
+    print(f"🔗 Chat: http://localhost:{port}")
+    print(f"📊 Admin: http://localhost:{port}/bookings")
+    print(f"💚 Health: http://localhost:{port}/health")
+    print(f"🌀 Streaming: POST http://localhost:{port}/chat_stream")
     use_waitress = os.getenv('USE_WAITRESS', 'false').lower() == 'true'
     if use_waitress:
         from waitress import serve

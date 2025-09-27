@@ -1,6 +1,10 @@
 Flask==2.3.3
 requests==2.31.0
-sqlite3
-datetime
-re
-json
+reportlab==4.0.4
+pandas==2.0.3
+python-dotenv==1.0.1
+Flask-Cors==4.0.1
+pydantic==2.8.2
+Flask-Limiter==3.5.0
+waitress==3.0.0
+gunicorn==21.2.0

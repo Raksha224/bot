@@ -20,6 +20,7 @@
    - Download and install Ollama
    - Verify: Open Command Prompt, type `ollama --version`
 
+
 #### **For Mac:**
 1. **Install Python**: `brew install python` or download from python.org
 2. **Install Ollama**: `curl -fsSL https://ollama.com/install.sh | sh`
